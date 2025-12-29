@@ -69,7 +69,6 @@ flutter:
     # if present. If you want to include your own sound, create the folder
     # `assets/` at project root, add your mp3 there and uncomment the line
     # below. Example:
-  - assets/reverby-notification-sound-246407.mp3
   - assets/pop.mp3
   - assets/notification_sound.mp3
   - assets/tomato.png
