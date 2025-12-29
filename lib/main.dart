@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:audioplayers/audioplayers.dart';
+import 'package:confetti/confetti.dart';
 import 'dart:math';
 import 'main_menu.dart';
 
@@ -76,6 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _showEncouragement = false;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  late ConfettiController _confettiController;
   // Focus nodes to track focus for input animation
   late FocusNode _studyFocus;
   late FocusNode _restFocus;
@@ -103,12 +105,16 @@ class _MyHomePageState extends State<MyHomePage> {
     _studyCtrl.addListener(() => _onFieldTextChange(_studyCtrl, 5));
     _restCtrl.addListener(() => _onFieldTextChange(_restCtrl, 5));
     _cyclesCtrl.addListener(() => _onFieldTextChange(_cyclesCtrl, 3));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 2),
+    );
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _audioPlayer.dispose();
+    _confettiController.dispose();
     _studyCtrl.dispose();
     _restCtrl.dispose();
     _cyclesCtrl.dispose();
@@ -219,6 +225,14 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _playPopSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('pop.mp3'));
+    } catch (_) {
+      // pop asset not available — user should add assets/pop.mp3 if desired
+    }
+  }
+
   void _displayEncouragement() {
     // pick a random message but not equal to last
     final rnd = Random();
@@ -231,7 +245,13 @@ class _MyHomePageState extends State<MyHomePage> {
     _lastEncouragementIndex = idx;
     _encouragementMessage = _encouragements[idx];
 
-    // feedback: vibrate on mobile, sound on desktop
+    // play confetti and try pop sound
+    try {
+      _confettiController.play();
+    } catch (_) {}
+    _playPopSound();
+
+    // feedback: vibrate on mobile, sound on desktop/fallback
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS)) {
@@ -375,186 +395,218 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(title: Text(widget.title), elevation: 2),
       body: Stack(
         children: [
+          // Main content
           Container(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-            const SizedBox(height: 6),
-            // Big definition with tomato image (falls back to emoji if asset missing)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // try to load local tomato image; if missing, show emoji
-                Image.asset(
-                  'assets/tomato.png',
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const Text('🍅', style: TextStyle(fontSize: 48)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 10,
+                const SizedBox(height: 6),
+                // Big definition with tomato image (falls back to emoji if asset missing)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // try to load local tomato image; if missing, show emoji
+                    Image.asset(
+                      'assets/tomato.png',
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Text('🍅', style: TextStyle(fontSize: 48)),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Pomodoro — alterna trabajo concentrado con breves descansos para mejorar la productividad.',
-                      style: const TextStyle(
-                        color: Colors.amberAccent,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 6,
+                          horizontal: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Pomodoro — alterna trabajo concentrado con breves descansos para mejorar la productividad.',
+                          style: const TextStyle(
+                            color: Colors.amberAccent,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.left,
+                        ),
                       ),
-                      textAlign: TextAlign.left,
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildNumberField(
-                    'Estudio (MM:SS)',
-                    _studyCtrl,
-                    _studyFocus,
-                    5,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildNumberField(
-                    'Descanso (MM:SS)',
-                    _restCtrl,
-                    _restFocus,
-                    5,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildNumberField(
-                    'Repeticiones',
-                    _cyclesCtrl,
-                    _cyclesFocus,
-                    3,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _isRunning ? null : _onStartPressed,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Iniciar'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurpleAccent,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _isRunning ? _onPausePressed : null,
-                  icon: const Icon(Icons.pause),
-                  label: const Text('Pausa'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _onResetPressed,
-                  icon: const Icon(Icons.restart_alt),
-                  label: const Text('Reset'),
-                ),
-                const Spacer(),
-                Text(
-                  modeLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // Timer display
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    _formatMMSS(_remaining),
-                    style: const TextStyle(
-                      fontSize: 56,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildNumberField(
+                        'Estudio (MM:SS)',
+                        _studyCtrl,
+                        _studyFocus,
+                        5,
+                      ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildNumberField(
+                        'Descanso (MM:SS)',
+                        _restCtrl,
+                        _restFocus,
+                        5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildNumberField(
+                        'Repeticiones',
+                        _cyclesCtrl,
+                        _cyclesFocus,
+                        3,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _isRunning ? null : _onStartPressed,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Iniciar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurpleAccent,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _isRunning ? _onPausePressed : null,
+                      icon: const Icon(Icons.pause),
+                      label: const Text('Pausa'),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _onResetPressed,
+                      icon: const Icon(Icons.restart_alt),
+                      label: const Text('Reset'),
+                    ),
+                    const Spacer(),
+                    Text(
+                      modeLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Timer display
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        _formatMMSS(_remaining),
+                        style: const TextStyle(
+                          fontSize: 56,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _mode == TimerMode.idle
+                            ? ''
+                            : 'Ciclo $_currentCycle / $_cycles',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 8),
+                      // contador de estudios completados
+                      Text(
+                        'Ciclos de estudio terminados: $_studyCompletedCount',
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _mode == TimerMode.idle
-                        ? ''
-                        : 'Ciclo $_currentCycle / $_cycles',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 8),
-                  // contador de estudios completados
-                  Text(
-                    'Estudios completados: $_studyCompletedCount',
-                    style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           // Encouragement overlay
-          if (_showEncouragement && _encouragementMessage != null)
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: true,
-                child: Center(
-                  child: AnimatedOpacity(
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !_showEncouragement,
+              child: Center(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: (_showEncouragement && _encouragementMessage != null)
+                      ? 1.0
+                      : 0.0,
+                  child: AnimatedScale(
                     duration: const Duration(milliseconds: 300),
-                    opacity: _showEncouragement ? 1.0 : 0.0,
-                    child: AnimatedScale(
-                      duration: const Duration(milliseconds: 300),
-                      scale: _showEncouragement ? 1.0 : 0.8,
-                      curve: Curves.easeOutBack,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.green[600],
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black26,
-                              blurRadius: 8,
-                              offset: Offset(0, 4),
-                            ),
+                    scale: (_showEncouragement && _encouragementMessage != null)
+                        ? 1.0
+                        : 0.8,
+                    curve: Curves.easeOutBack,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ConfettiWidget(
+                          confettiController: _confettiController,
+                          blastDirectionality: BlastDirectionality.explosive,
+                          shouldLoop: false,
+                          emissionFrequency: 0.05,
+                          numberOfParticles: 30,
+                          maxBlastForce: 40,
+                          minBlastForce: 20,
+                          colors: const [
+                            Colors.greenAccent,
+                            Colors.white,
+                            Colors.amber,
                           ],
                         ),
-                        child: Text(
-                          _encouragementMessage!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                        (_encouragementMessage != null)
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green[600],
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 8,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  _encouragementMessage!,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

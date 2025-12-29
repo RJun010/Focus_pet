@@ -38,6 +38,7 @@ dependencies:
   # ensure compatibility with current Flutter/Dart SDKs. If any API changes
   # affect the code, I'll apply minimal edits after running and testing.
   audioplayers: ^2.0.0
+  confetti: ^0.7.0
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,7 @@ flutter:
     # `assets/` at project root, add your mp3 there and uncomment the line
     # below. Example:
   - assets/reverby-notification-sound-246407.mp3
+  - assets/pop.mp3
   - assets/tomato.png
 
     # NOTE: if you don't provide the asset, the app falls back to a remote
