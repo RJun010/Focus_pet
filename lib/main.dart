@@ -234,11 +234,15 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _playClickAsset() async {
+    final player = AudioPlayer();
     try {
-      await _audioPlayer.play(AssetSource('click.mp3'));
+      await player.play(AssetSource('click.mp3'));
     } catch (_) {
       // ignore if missing
     }
+    try {
+      await player.dispose();
+    } catch (_) {}
   }
 
   VoidCallback? _wrapWithClick(VoidCallback? original) {
