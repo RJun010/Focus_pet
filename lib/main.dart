@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:audioplayers/audioplayers.dart';
+import 'main_menu.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,7 +31,10 @@ class MyApp extends StatelessWidget {
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF2A004A)),
       ),
       themeMode: ThemeMode.dark,
-      home: const MyHomePage(title: 'Pomodoro — Focus Pet'),
+      home: const MainMenu(),
+      routes: {
+        '/timer': (context) => const MyHomePage(title: 'Pomodoro — Focus Pet'),
+      },
     );
   }
 }
@@ -62,6 +66,34 @@ class _MyHomePageState extends State<MyHomePage> {
   int _currentCycle = 0;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  // Focus nodes to track focus for input animation
+  late FocusNode _studyFocus;
+  late FocusNode _restFocus;
+  late FocusNode _cyclesFocus;
+  // Track whether a controller already reached max to avoid repeated clicks
+  final Map<TextEditingController, bool> _reachedMax = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _studyFocus = FocusNode();
+    _restFocus = FocusNode();
+    _cyclesFocus = FocusNode();
+
+    _studyFocus.addListener(() => _onFieldFocusChange(_studyFocus, _studyCtrl));
+    _restFocus.addListener(() => _onFieldFocusChange(_restFocus, _restCtrl));
+    _cyclesFocus.addListener(
+      () => _onFieldFocusChange(_cyclesFocus, _cyclesCtrl),
+    );
+
+    _reachedMax[_studyCtrl] = _studyCtrl.text.length >= 5;
+    _reachedMax[_restCtrl] = _restCtrl.text.length >= 5;
+    _reachedMax[_cyclesCtrl] = _cyclesCtrl.text.length >= 3;
+
+    _studyCtrl.addListener(() => _onFieldTextChange(_studyCtrl, 5));
+    _restCtrl.addListener(() => _onFieldTextChange(_restCtrl, 5));
+    _cyclesCtrl.addListener(() => _onFieldTextChange(_cyclesCtrl, 3));
+  }
 
   @override
   void dispose() {
@@ -70,7 +102,40 @@ class _MyHomePageState extends State<MyHomePage> {
     _studyCtrl.dispose();
     _restCtrl.dispose();
     _cyclesCtrl.dispose();
+    _studyFocus.dispose();
+    _restFocus.dispose();
+    _cyclesFocus.dispose();
     super.dispose();
+  }
+
+  void _onFieldFocusChange(FocusNode node, TextEditingController ctrl) {
+    if (!node.hasFocus) {
+      _playClickSound();
+    }
+    setState(() {});
+  }
+
+  void _onFieldTextChange(TextEditingController ctrl, int maxLen) {
+    final len = ctrl.text.length;
+    if (len >= maxLen && !(_reachedMax[ctrl] ?? false)) {
+      _reachedMax[ctrl] = true;
+      _playClickSound();
+    } else if (len < maxLen && (_reachedMax[ctrl] ?? false)) {
+      _reachedMax[ctrl] = false;
+    }
+  }
+
+  Future<void> _playClickSound() async {
+    try {
+      SystemSound.play(SystemSoundType.click);
+      return;
+    } catch (_) {}
+    try {
+      // fallback remote small click
+      await _audioPlayer.play(
+        UrlSource('https://www.soundjay.com/button/sounds/button-16.mp3'),
+      );
+    } catch (_) {}
   }
 
   String _formatMMSS(int s) {
@@ -307,14 +372,31 @@ class _MyHomePageState extends State<MyHomePage> {
             Row(
               children: [
                 Expanded(
-                  child: _buildNumberField('Estudio (MM:SS)', _studyCtrl),
+                  child: _buildNumberField(
+                    'Estudio (MM:SS)',
+                    _studyCtrl,
+                    _studyFocus,
+                    5,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildNumberField('Descanso (MM:SS)', _restCtrl),
+                  child: _buildNumberField(
+                    'Descanso (MM:SS)',
+                    _restCtrl,
+                    _restFocus,
+                    5,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: _buildNumberField('Repeticiones', _cyclesCtrl)),
+                Expanded(
+                  child: _buildNumberField(
+                    'Repeticiones',
+                    _cyclesCtrl,
+                    _cyclesFocus,
+                    3,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -377,29 +459,43 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Widget _buildNumberField(String label, TextEditingController controller) {
+  Widget _buildNumberField(
+    String label,
+    TextEditingController controller,
+    FocusNode focusNode,
+    int maxLen,
+  ) {
+    final scale = focusNode.hasFocus ? 1.08 : 1.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: Colors.white70)),
         const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          inputFormatters: controller == _cyclesCtrl
-              ? [FilteringTextInputFormatter.digitsOnly]
-              : [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
-          maxLength: controller == _cyclesCtrl ? 3 : 5,
-          decoration: InputDecoration(
-            hintText: controller == _cyclesCtrl ? null : 'MM:SS',
-            counterText: '',
-            border: const OutlineInputBorder(),
-            isDense: true,
-            filled: true,
-            fillColor: const Color(0xFF1B0133),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 10,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          transform: Matrix4.identity()..scale(scale, scale),
+          child: TextField(
+            focusNode: focusNode,
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: controller == _cyclesCtrl
+                ? [FilteringTextInputFormatter.digitsOnly]
+                : [FilteringTextInputFormatter.allow(RegExp(r'[\d:]'))],
+            maxLength: maxLen,
+            onEditingComplete: _playClickSound,
+            onSubmitted: (_) => _playClickSound(),
+            decoration: InputDecoration(
+              hintText: controller == _cyclesCtrl ? null : 'MM:SS',
+              counterText: '',
+              border: const OutlineInputBorder(),
+              isDense: true,
+              filled: true,
+              fillColor: const Color(0xFF1B0133),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 10,
+              ),
             ),
           ),
         ),
