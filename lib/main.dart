@@ -233,6 +233,17 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _playStudyEndSound() async {
+    try {
+      // Preferred: play local study-end asset if present
+      await _audioPlayer.play(AssetSource('notification_sound.mp3'));
+      return;
+    } catch (_) {
+      // fallback to generic end sound
+    }
+    await _playEndSound();
+  }
+
   void _displayEncouragement() {
     // pick a random message but not equal to last
     final rnd = Random();
@@ -312,8 +323,9 @@ class _MyHomePageState extends State<MyHomePage> {
         _remaining--;
         if (_remaining < 0) {
           // period finished
-          _playEndSound();
           if (_mode == TimerMode.study) {
+            // play study-end notification sound (prefer local asset)
+            _playStudyEndSound();
             // finished a study period
             _studyCompletedCount++;
             // switch to rest
@@ -344,6 +356,7 @@ class _MyHomePageState extends State<MyHomePage> {
               _mode = TimerMode.study;
               _totalSeconds = studySec.clamp(1, 180 * 60);
               _remaining = _totalSeconds;
+              _playEndSound();
               _showNotification(
                 'Estudio',
                 'Estudio: ${_formatMMSS(_totalSeconds)} — Ciclo $_currentCycle/$_cycles',

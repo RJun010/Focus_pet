@@ -71,6 +71,7 @@ flutter:
     # below. Example:
   - assets/reverby-notification-sound-246407.mp3
   - assets/pop.mp3
+  - assets/notification_sound.mp3
   - assets/tomato.png
 
     # NOTE: if you don't provide the asset, the app falls back to a remote
