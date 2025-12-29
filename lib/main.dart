@@ -233,6 +233,24 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  Future<void> _playClickAsset() async {
+    try {
+      await _audioPlayer.play(AssetSource('click.mp3'));
+    } catch (_) {
+      // ignore if missing
+    }
+  }
+
+  VoidCallback? _wrapWithClick(VoidCallback? original) {
+    if (original == null) return null;
+    return () async {
+      try {
+        await _playClickAsset();
+      } catch (_) {}
+      original();
+    };
+  }
+
   Future<void> _playStudyEndSound() async {
     try {
       // Preferred: play local study-end asset if present
@@ -488,7 +506,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 Row(
                   children: [
                     ElevatedButton.icon(
-                      onPressed: _isRunning ? null : _onStartPressed,
+                      onPressed: _isRunning
+                          ? null
+                          : _wrapWithClick(_onStartPressed),
                       icon: const Icon(Icons.play_arrow),
                       label: const Text('Iniciar'),
                       style: ElevatedButton.styleFrom(
@@ -498,13 +518,15 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
-                      onPressed: _isRunning ? _onPausePressed : null,
+                      onPressed: _isRunning
+                          ? _wrapWithClick(_onPausePressed)
+                          : null,
                       icon: const Icon(Icons.pause),
                       label: const Text('Pausa'),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: _onResetPressed,
+                      onPressed: _wrapWithClick(_onResetPressed),
                       icon: const Icon(Icons.restart_alt),
                       label: const Text('Reset'),
                     ),
