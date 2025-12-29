@@ -237,12 +237,18 @@ class _MyHomePageState extends State<MyHomePage> {
     final player = AudioPlayer();
     try {
       await player.play(AssetSource('click.mp3'));
+      // dispose after a short delay so playback is not cut off immediately
+      Future.delayed(const Duration(milliseconds: 800), () async {
+        try {
+          await player.dispose();
+        } catch (_) {}
+      });
     } catch (_) {
-      // ignore if missing
+      // ignore if missing or playback failed
+      try {
+        await player.dispose();
+      } catch (_) {}
     }
-    try {
-      await player.dispose();
-    } catch (_) {}
   }
 
   VoidCallback? _wrapWithClick(VoidCallback? original) {

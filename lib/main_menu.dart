@@ -10,10 +10,17 @@ class MainMenu extends StatelessWidget {
       final p = AudioPlayer();
       try {
         await p.play(AssetSource('click.mp3'));
-      } catch (_) {}
-      try {
-        await p.dispose();
-      } catch (_) {}
+        // keep alive briefly so playback isn't cut
+        Future.delayed(const Duration(milliseconds: 800), () async {
+          try {
+            await p.dispose();
+          } catch (_) {}
+        });
+      } catch (_) {
+        try {
+          await p.dispose();
+        } catch (_) {}
+      }
     }
 
     return Scaffold(
