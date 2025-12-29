@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'pages/tasklist.dart';
 
 class MainMenu extends StatelessWidget {
   const MainMenu({super.key});
@@ -40,8 +41,12 @@ class MainMenu extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 await _playClick();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TaskPage()),
+                );
               },
-              child: const Text('Pestaña 2 (sin acción)'),
+              child: const Text('Ir a TaskList'),
             ),
             const SizedBox(height: 12),
             ElevatedButton(
