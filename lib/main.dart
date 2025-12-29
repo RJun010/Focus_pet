@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:audioplayers/audioplayers.dart';
+import 'dart:math';
 import 'main_menu.dart';
 
 void main() {
@@ -64,6 +65,15 @@ class _MyHomePageState extends State<MyHomePage> {
   int _remaining = 0; // remaining seconds in current period
   int _cycles = 1;
   int _currentCycle = 0;
+  int _studyCompletedCount = 0; // contador de periodos de estudio completados
+  final List<String> _encouragements = [
+    'Muy bien hecho, sigue así',
+    'Enhorabuena, lo has hecho genial',
+    'Excelente trabajo, sigue esforzándote así y llegarás lejos',
+  ];
+  int _lastEncouragementIndex = -1;
+  String? _encouragementMessage;
+  bool _showEncouragement = false;
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   // Focus nodes to track focus for input animation
@@ -209,6 +219,41 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void _displayEncouragement() {
+    // pick a random message but not equal to last
+    final rnd = Random();
+    int idx = rnd.nextInt(_encouragements.length);
+    if (_lastEncouragementIndex >= 0 && _encouragements.length > 1) {
+      while (idx == _lastEncouragementIndex) {
+        idx = rnd.nextInt(_encouragements.length);
+      }
+    }
+    _lastEncouragementIndex = idx;
+    _encouragementMessage = _encouragements[idx];
+
+    // feedback: vibrate on mobile, sound on desktop
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)) {
+      try {
+        HapticFeedback.vibrate();
+      } catch (_) {}
+    } else {
+      _playEndSound();
+    }
+
+    setState(() {
+      _showEncouragement = true;
+    });
+
+    // hide after a short duration
+    Future.delayed(const Duration(milliseconds: 2400), () {
+      setState(() {
+        _showEncouragement = false;
+      });
+    });
+  }
+
   void _showNotification(String title, String body) {
     // In-app notification (SnackBar) and a dialog for clarity
     ScaffoldMessenger.of(context).showSnackBar(
@@ -249,6 +294,8 @@ class _MyHomePageState extends State<MyHomePage> {
           // period finished
           _playEndSound();
           if (_mode == TimerMode.study) {
+            // finished a study period
+            _studyCompletedCount++;
             // switch to rest
             _mode = TimerMode.rest;
             _totalSeconds = restSec.clamp(1, 60 * 60);
@@ -266,6 +313,8 @@ class _MyHomePageState extends State<MyHomePage> {
               _mode = TimerMode.idle;
               _isRunning = false;
               _showNotification('¡Terminado!', 'Todos los ciclos completados.');
+              // show encouragement with animation/vibration/sound
+              _displayEncouragement();
               _currentCycle = 0;
               _totalSeconds = 0;
               _remaining = 0;
@@ -324,11 +373,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.title), elevation: 2),
-      body: Container(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      body: Stack(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             const SizedBox(height: 6),
             // Big definition with tomato image (falls back to emoji if asset missing)
             Row(
@@ -450,7 +501,56 @@ class _MyHomePageState extends State<MyHomePage> {
                         : 'Ciclo $_currentCycle / $_cycles',
                     style: const TextStyle(color: Colors.white70),
                   ),
+                  const SizedBox(height: 8),
+                  // contador de estudios completados
+                  Text(
+                    'Estudios completados: $_studyCompletedCount',
+                    style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.w600),
+                  ),
                 ],
+              ),
+            ),
+          ),
+
+          // Encouragement overlay
+          if (_showEncouragement && _encouragementMessage != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: Center(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _showEncouragement ? 1.0 : 0.0,
+                    child: AnimatedScale(
+                      duration: const Duration(milliseconds: 300),
+                      scale: _showEncouragement ? 1.0 : 0.8,
+                      curve: Curves.easeOutBack,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[600],
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          _encouragementMessage!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
